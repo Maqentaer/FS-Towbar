@@ -147,85 +147,84 @@ function Towbar:onUpdateTick(dt, isActiveForInput, isActiveForInputIgnoreSelecti
     end
 
     if spec.attachedVehicleJoint ~= nil then
-        if spec.isAttached then
-            local isControlled = false
-            local vehicle = spec.attachedVehicleJoint.vehicle
-            local rootVehicle = vehicle:getRootVehicle()
-            local childVehicles = rootVehicle:getChildVehicles()
+		local isControlled = false
+	    if spec.isAttached then
+            local childVehicles = spec.attachedVehicleJoint.vehicle:getRootVehicle():getChildVehicles()
             for i = 1, #childVehicles do
                 if childVehicles[i].spec_enterable ~= nil and childVehicles[i].spec_enterable.isControlled then
                     isControlled = true
                 end
             end
-            if not isControlled then
-                local inputJoint = self.spec_attachable.attacherJoint -- Created upon attaching to vehicle
-                
-                if inputJoint ~= nil then
-                    -- Turn towed vehicle towards input attacher joint
-                    if rootVehicle.spec_enterable ~= nil and rootVehicle.getReverserDirection ~= nil and rootVehicle.getAISteeringSpeed ~= nil then
-                        local xTarget, yTarget, zTarget = getWorldTranslation(inputJoint.node)
-                        local tX, _, tZ = worldToLocal(rootVehicle.rootNode, xTarget, yTarget, zTarget)
+		end
+        if spec.isAttached and not isControlled then
+            local vehicle = spec.attachedVehicleJoint.vehicle:getRootVehicle()
+			local inputJoint = self.spec_attachable.attacherJoint -- Created upon attaching to vehicle
+			
+			if inputJoint ~= nil then
+				-- Turn towed vehicle towards input attacher joint
+				if vehicle.spec_enterable ~= nil and vehicle.getReverserDirection ~= nil and vehicle.getAISteeringSpeed ~= nil then
+					local xTarget, yTarget, zTarget = getWorldTranslation(inputJoint.node)
+					local tX, _, tZ = worldToLocal(vehicle.rootNode, xTarget, yTarget, zTarget)
 
-                        local tX_2 = tX * 0.5
-                        local tZ_2 = tZ * 0.5
+					local tX_2 = tX * 0.5
+					local tZ_2 = tZ * 0.5
 
-                        local d1X, d1Z = tZ_2, -tX_2
-                        if tX > 0 then
-                            d1X, d1Z = -tZ_2, tX_2
-                        end
+					local d1X, d1Z = tZ_2, -tX_2
+					if tX > 0 then
+						d1X, d1Z = -tZ_2, tX_2
+					end
 
-                        local rotTime = 0
-                        local hit, _, f2 = MathUtil.getLineLineIntersection2D(tX_2,tZ_2, d1X,d1Z, 0,0, tX, 0)
-                        
-                        if hit and math.abs(f2) < 100000 then
-                            local radius = tX * f2
+					local rotTime = 0
+					local hit, _, f2 = MathUtil.getLineLineIntersection2D(tX_2,tZ_2, d1X,d1Z, 0,0, tX, 0)
+					
+					if hit and math.abs(f2) < 100000 then
+						local radius = tX * f2
 
-                            rotTime = rootVehicle:getSteeringRotTimeByCurvature(1 / radius)
+						rotTime = vehicle:getSteeringRotTimeByCurvature(1 / radius)
 
-                            if rootVehicle:getReverserDirection() < 0 then
-                                rotTime = -rotTime
-                            end
-                        end
+						if vehicle:getReverserDirection() < 0 then
+							rotTime = -rotTime
+						end
+					end
 
-                        local targetRotTime
+					local targetRotTime
 
-                        if rotTime >= 0 then
-                            targetRotTime = math.min(rotTime, rootVehicle.maxRotTime)
-                        else
-                            targetRotTime = math.max(rotTime, rootVehicle.minRotTime)
-                        end
-                        
-                        if targetRotTime > rootVehicle.rotatedTime then
-                            rootVehicle.rotatedTime = math.min(rootVehicle.rotatedTime + dt*rootVehicle:getAISteeringSpeed(), targetRotTime)
-                        else
-                            rootVehicle.rotatedTime = math.max(rootVehicle.rotatedTime - dt*rootVehicle:getAISteeringSpeed(), targetRotTime)
-                        end
+					if rotTime >= 0 then
+						targetRotTime = math.min(rotTime, vehicle.maxRotTime)
+					else
+						targetRotTime = math.max(rotTime, vehicle.minRotTime)
+					end
+					
+					if targetRotTime > vehicle.rotatedTime then
+						vehicle.rotatedTime = math.min(vehicle.rotatedTime + dt*vehicle:getAISteeringSpeed(), targetRotTime)
+					else
+						vehicle.rotatedTime = math.max(vehicle.rotatedTime - dt*vehicle:getAISteeringSpeed(), targetRotTime)
+					end
 
-                        if rootVehicle ~= vehicle then
-                            rootVehicle.spec_wheels:forceUpdateWheelPhysics()
-                        end
-                    end
-                    
-                    local brakePedal
-                    local attacherVehicle = self:getAttacherVehicle()
-                    if spec.matchParentVehicle and attacherVehicle ~= nil then
-                        -- Match to parent Vehicle
-                        brakePedal = attacherVehicle.spec_wheels.brakePedal
-                        
-                        -- Work In Progress
-                        -- check motor and match
-                    else
-                        -- Keep brakes inactive as long as nothing controls vehicle
-                        brakePedal = 0
-                    end
+					if vehicle ~= spec.attachedVehicleJoint.vehicle then
+						vehicle.spec_wheels:forceUpdateWheelPhysics()
+					end
+				end
+				
+				local brakePedal
+				local attacherVehicle = self:getAttacherVehicle()
+				if spec.matchParentVehicle and attacherVehicle ~= nil then
+					-- Match to parent Vehicle
+					brakePedal = attacherVehicle.spec_wheels.brakePedal
+					
+					-- Work In Progress
+					-- check motor and match
+				else
+					-- Keep brakes inactive as long as nothing controls vehicle
+					brakePedal = 0
+				end
 
-                    -- Keep brakes inactive as long as nothing controls vehicle
-                    Towbar.setBrakePedal(vehicle, brakePedal, nil)
-                else
-                    -- Nothing attached infront, put the brakes back!
-                    Towbar.setBrakePedal(vehicle, 1, nil)
-                end
-            end
+				-- Keep brakes inactive as long as nothing controls vehicle
+				Towbar.setBrakePedal(vehicle, brakePedal, nil)
+			else
+				-- Nothing attached infront, put the brakes back!
+				Towbar.setBrakePedal(vehicle, 1, nil)
+			end
         else
             -- Keep active to force vehicle to stop if its moving upon detach
             if spec.detachTimer ~= nil then
